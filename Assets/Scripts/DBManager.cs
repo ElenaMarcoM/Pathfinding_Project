@@ -1,9 +1,14 @@
+using Mono.Data.Sqlite;
+using Newtonsoft.Json;
+using UnityEngine;
+using System;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
-using Mono.Data.Sqlite;
 using System.Data;
-using System;
+using System.IO;
+using System.Xml;
+using System.Xml.Serialization;
+using System.Text;
 
 public class DBManager : MonoBehaviour
 {
@@ -22,7 +27,7 @@ public class DBManager : MonoBehaviour
         "Score INTEGER);";
 
     //DEFAULT SCORES
-    private int[] scores_default = {2, 4, 6, 8, 10 };
+    private int[] scores_default = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     private string[] nombres_default = { "Daria", "Mercedes", "Ana", "Fernando", "Ramon", "Ben", "Raul", "Pedro", "Lucia", "Poncho" };
     private string[] nacionalidad_default = { "Spanish", "Brazilian", "German", "British", "French", "Italian", "Chinese", "Australian", "Japanese", "Ecuatorian" };
     private int NUM_PLAYERS = 100;
@@ -32,6 +37,8 @@ public class DBManager : MonoBehaviour
     {
         // Creamos la base de datos
         IDbConnection dbConnection = CreateAndOpenDataBase();
+        InitializeDB(dbConnection);
+        AddRandomData(dbConnection);
 
         dbConnection.Close();
     }
@@ -78,20 +85,35 @@ public class DBManager : MonoBehaviour
         dbCommand.ExecuteNonQuery();
     }
 
+    void UpdatePlayerInfo(IDbConnection dbConnection, string nacionalidad, string name)
+    {
+        // Editar un valor de la tabla
+        string command = "UPDATE Player " +
+            $"SET Nationality='{nacionalidad}' " +
+            $"WHERE Name='{name}';";
+        command += $"({nacionalidad});";
+
+        IDbCommand dbCommand = dbConnection.CreateCommand();
+        dbCommand.CommandText = command;
+    }
+
     string SearchByName(IDbConnection dbConnection, string nombre)
     {
         string player = "";
 
         // Buscar elemento(s) en mi tabla
         IDbCommand dbCommand = dbConnection.CreateCommand();
-        dbCommand.CommandText = $"SELECT Name, GameMode, Nationality FROM Player WHERE Name='{nombre}';";
+        dbCommand.CommandText = $"SELECT Name, GameMode, Nationality, Performance.Score " +
+            $"FROM Player  " +
+            $"JOIN Performance ON player.Performance = Performance.Id" +
+            $"WHERE Name='{nombre}';";
 
         //Usamos .ExecuteReader() cuando queremos q nos devuelva un reader para procesar
         //los datos q me devuelve
         IDataReader reader = dbCommand.ExecuteReader();
         while(reader.Read())
         {
-            player += $"{reader.GetString(0)}, {reader.GetString(1)}, {reader.GetString(2)}\n";
+            player += $"{reader.GetString(0)}, {reader.GetString(1)}, {reader.GetString(2)}, {reader.GetInt32(3)}\n";
         }
 
         return player;
@@ -103,17 +125,84 @@ public class DBManager : MonoBehaviour
 
         // Buscar elemento(s) en mi tabla
         IDbCommand dbCommand = dbConnection.CreateCommand();
-        dbCommand.CommandText = $"SELECT Name, GameMode, Nationality FROM Player WHERE Nationality='{nacionalidad}';";
+        dbCommand.CommandText = $"SELECT Name, GameMode, Nationality, Performance.Score " +
+            $"FROM Player  " +
+            $"JOIN Performance ON player.Performance = Performance.Id" +
+            $"WHERE Nationality='{nacionalidad}';";
 
         //Usamos .ExecuteReader() cuando queremos q nos devuelva un reader para procesar
         //los datos q me devuelve
         IDataReader reader = dbCommand.ExecuteReader();
         while (reader.Read())
         {
-            player += $"{reader.GetString(0)}, {reader.GetString(1)}, {reader.GetString(2)}\n";
+            player += $"{reader.GetString(0)}, {reader.GetString(1)}, {reader.GetString(2)}, {reader.GetInt32(3)}\n";
         }
-
         return player;
+    }
+
+    string SearchByScore(IDbConnection dbConnection, int puntuacion)
+    {
+        // Buscamos en la tabla Performance todos valores q coincidan con
+        //puntuacion y guardamos el id
+        IDbCommand dbCmd = dbConnection.CreateCommand();
+        dbCmd.CommandText = $"SELECT Id FROM Performance WHERE Score='{puntuacion}';";
+        IDataReader reader = dbCmd.ExecuteReader();
+        if (!reader.Read())
+        {
+            return null;
+        }
+        int id_performance = reader.GetInt32(0);
+        reader.Close();
+
+        dbCmd.CommandText = $"SELECT Name, GameMode, Nationality, Performance.Score " +
+            $"FROM Player  " +
+            $"JOIN Performance ON player.Performance = Performance.Id" +
+            $"WHERE Performance='{id_performance}';";
+        reader = dbCmd.ExecuteReader();
+        string players = "";
+        while (reader.Read())
+        {
+            players += $"{reader.GetString(0)}, {reader.GetString(1)}, {reader.GetString(2)}, {reader.GetInt32(3)}\n";
+        }
+        return players;
+    }
+
+    void FromSqlToXml (IDbConnection dbConnection)
+    {
+        string command = "SELECT * FROM Player, ";
+        IDbCommand dbCommand = dbConnection.CreateCommand();
+
+    }
+
+    /// <summary>
+    /// Guarda en fichero (xml) un objeto.
+    /// </summary>
+    /// <param name="objetoBbDd">Objeto a guardar.</param>
+    /// <param name="fileName">Nombre del fichero sin extensión.</param>
+    private void WriteSqlToXml(object objetoBbDd, string fileName)
+    {
+        XmlSerializer xs = new XmlSerializer(objetoBbDd.GetType());
+
+        string filePathComplete = Path.Combine(Directory.GetCurrentDirectory(), $"{fileName}.xml");
+        Stream stream = new FileStream(filePathComplete, FileMode.Create);
+        
+        XmlTextWriter writer = new XmlTextWriter(stream, Encoding.Unicode);
+
+        xs.Serialize(writer, objetoBbDd);
+        writer.Close();
+    }
+
+    /// <summary>
+    /// Guarda en fichero (json) un objeto.
+    /// </summary>
+    /// <param name="objetoBbDd">Objeto a guardar.</param>
+    /// <param name="fileName">Nomvre del fichero sin extensión.</param>
+    private void WriteSqlToJson(object objetoBbDd, string fileName)
+    {
+        string textjson = JsonConvert.SerializeObject(objetoBbDd);
+
+        string filePathComplete = Path.Combine(Directory.GetCurrentDirectory(), $"{fileName}.json");
+        File.WriteAllText(filePathComplete, textjson);
     }
 
     // Update is called once per frame
@@ -148,4 +237,5 @@ public class DBManager : MonoBehaviour
         dbCommand.CommandText = command;
         dbCommand.ExecuteNonQuery();
     }
+
 }
