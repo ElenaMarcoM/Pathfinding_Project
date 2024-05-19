@@ -13,7 +13,7 @@ public class SpawnFish : MonoBehaviour
     void Update()
     {
         timer += Time.deltaTime;
-        Vector3 randomPos = new Vector3(Random.Range(-1.5f, 1.5f), Random.Range(-1.5f, 1.5f), 0);
+        Vector3 randomPos = new Vector3(Random.Range(-10f, 10f), 0.5f, Random.Range(-10f, 10f));
 
         if (timer >= spawnInterval)
         {
