@@ -39,6 +39,9 @@ public class DBManager : MonoBehaviour
         IDbConnection dbConnection = CreateAndOpenDataBase();
         InitializeDB(dbConnection);
         AddRandomData(dbConnection);
+        UpdatePlayerInfo(dbConnection, "Filipino", "Ben");
+        DeletePlayerInfo(dbConnection, "Poncho");
+        Debug.Log(SearchByScore(dbConnection, 5)); ;
 
         dbConnection.Close();
     }
@@ -91,10 +94,19 @@ public class DBManager : MonoBehaviour
         string command = "UPDATE Player " +
             $"SET Nationality='{nacionalidad}' " +
             $"WHERE Name='{name}';";
-        command += $"({nacionalidad});";
-
         IDbCommand dbCommand = dbConnection.CreateCommand();
         dbCommand.CommandText = command;
+        dbCommand.ExecuteNonQuery();
+    }
+
+    void DeletePlayerInfo(IDbConnection dbConnection, string name)
+    {
+        // Eliminar una(s) filas de la tabla
+        string command = "DELETE FROM Player " +
+            $"WHERE Name='{name}';";
+        IDbCommand dbCommand = dbConnection.CreateCommand();
+        dbCommand.CommandText = command;
+        dbCommand.ExecuteNonQuery();
     }
 
     string SearchByName(IDbConnection dbConnection, string nombre)
